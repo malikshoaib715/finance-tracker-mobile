@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'router.dart';
 import 'theme.dart';
 
-class FinanceTrackerApp extends StatelessWidget {
+class FinanceTrackerApp extends ConsumerWidget {
   const FinanceTrackerApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
+  Widget build(BuildContext context, WidgetRef ref) {
+    return MaterialApp.router(
       title: 'Finance Tracker',
       theme: buildTheme(),
       debugShowCheckedModeBanner: false,
-      home: const Scaffold(
-        body: Center(child: Text('Finance Tracker')),
-      ),
+      routerConfig: ref.watch(routerProvider),
     );
   }
 }
