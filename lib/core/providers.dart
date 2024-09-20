@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../data/database.dart';
+import '../data/reference_repository.dart';
 import 'api/api_client.dart';
 import 'auth/token_store.dart';
 
@@ -16,3 +18,16 @@ final apiClientProvider = Provider<ApiClient>((ref) {
   final tokens = ref.watch(tokenStoreProvider);
   return ApiClient(baseUrl: apiBaseUrl, tokenProvider: tokens.read);
 });
+
+final databaseProvider = Provider<AppDatabase>((ref) {
+  final db = AppDatabase();
+  ref.onDispose(db.close);
+  return db;
+});
+
+final referenceRepositoryProvider = Provider<ReferenceRepository>(
+  (ref) => ReferenceRepository(
+    ref.watch(databaseProvider),
+    ref.watch(apiClientProvider),
+  ),
+);
