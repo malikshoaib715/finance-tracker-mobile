@@ -1,36 +1,19 @@
-import 'package:finance_tracker_mobile/app/app.dart';
 import 'package:finance_tracker_mobile/core/auth/token_store.dart';
-import 'package:finance_tracker_mobile/core/providers.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../support/fake_api.dart';
+import '../../support/harness.dart';
 
 void main() {
-  testWidgets('greets the user and signs out after confirming', (tester) async {
+  testWidgets('shows the summary and signs out after confirming',
+      (tester) async {
     final tokens = InMemoryTokenStore('ft_ok');
-    final api = FakeApi()
-      ..on(
-        'GET /me',
-        (
-          200,
-          {'id': 1, 'name': 'Ayesha Khan', 'email': 'a@example.com'},
-        ),
-      )
-      ..on('DELETE /session', (204, null));
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          tokenStoreProvider.overrideWithValue(tokens),
-          apiClientProvider.overrideWithValue(api.client()),
-        ],
-        child: const FinanceTrackerApp(),
-      ),
-    );
+    await tester.pumpWidget(testApp(api: signedInApi(), tokens: tokens));
     await tester.pumpAndSettle();
+
     expect(find.text('Hi, Ayesha'), findsOneWidget);
+    expect(find.text('Rs 2,376,000.00'), findsOneWidget);
 
     await tester.tap(find.byTooltip('Sign out'));
     await tester.pumpAndSettle();
@@ -39,5 +22,19 @@ void main() {
 
     expect(await tokens.read(), isNull);
     expect(find.widgetWithText(FilledButton, 'Sign in'), findsOneWidget);
+    await unmountApp(tester);
+  });
+
+  testWidgets('shows an error with retry when offline and nothing is cached',
+      (tester) async {
+    final api = FakeApi()..on('GET /me', (200, testUser));
+    await tester.pumpWidget(
+      testApp(api: api, tokens: InMemoryTokenStore('ft_ok')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('No connection to the server'), findsOneWidget);
+    expect(find.text('Try again'), findsOneWidget);
+    await unmountApp(tester);
   });
 }
