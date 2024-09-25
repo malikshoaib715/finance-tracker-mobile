@@ -71,7 +71,18 @@ class SyncState extends Table {
 @DriftDatabase(tables: [Accounts, Categories, Transactions, Outbox, SyncState])
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor])
-      : super(executor ?? driftDatabase(name: 'finance_tracker'));
+      : super(
+          executor ??
+              driftDatabase(
+                name: 'finance_tracker',
+                // Web builds run SQLite as WebAssembly in a worker; both files
+                // are served from web/ and must match the drift/sqlite3 versions.
+                web: DriftWebOptions(
+                  sqlite3Wasm: Uri.parse('sqlite3.wasm'),
+                  driftWorker: Uri.parse('drift_worker.js'),
+                ),
+              ),
+        );
 
   @override
   int get schemaVersion => 1;
