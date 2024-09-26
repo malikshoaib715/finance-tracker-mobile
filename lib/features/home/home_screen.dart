@@ -248,7 +248,8 @@ class _AccountsSection extends ConsumerWidget {
         if (accounts.isEmpty)
           const Card(
             child: EmptyView(
-              message: 'Pull down to load your accounts.',
+              message:
+                  'No accounts yet. Add one on the web, then pull to refresh.',
               icon: Icons.account_balance_wallet_outlined,
             ),
           )
