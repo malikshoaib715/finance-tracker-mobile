@@ -100,14 +100,20 @@ class TransactionsRepository {
 
   Future<void> delete(String clientId) {
     return _db.transaction(() async {
+      final row = await findByClientId(clientId);
       await (_db.delete(_db.transactions)
             ..where((t) => t.clientId.equals(clientId)))
           .go();
-      await _enqueue('delete', clientId);
+      await _enqueue('delete', clientId, serverId: row?.serverId);
     });
   }
 
-  Future<void> _enqueue(String operation, String clientId) => _db
-      .into(_db.outbox)
-      .insert(OutboxCompanion.insert(operation: operation, clientId: clientId));
+  Future<void> _enqueue(String operation, String clientId, {int? serverId}) =>
+      _db.into(_db.outbox).insert(
+            OutboxCompanion.insert(
+              operation: operation,
+              clientId: clientId,
+              serverId: Value(serverId),
+            ),
+          );
 }

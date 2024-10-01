@@ -54,6 +54,9 @@ class Outbox extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get operation => text()(); // create | update | delete
   TextColumn get clientId => text()();
+
+  /// For deletes: the row is gone locally, so remember which server record to delete.
+  IntColumn get serverId => integer().nullable()();
   IntColumn get attempts => integer().withDefault(const Constant(0))();
   TextColumn get lastError => text().nullable()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();

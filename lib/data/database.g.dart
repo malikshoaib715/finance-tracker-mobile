@@ -1261,6 +1261,12 @@ class $OutboxTable extends Outbox with TableInfo<$OutboxTable, OutboxData> {
   late final GeneratedColumn<String> clientId = GeneratedColumn<String>(
       'client_id', aliasedName, false,
       type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _serverIdMeta =
+      const VerificationMeta('serverId');
+  @override
+  late final GeneratedColumn<int> serverId = GeneratedColumn<int>(
+      'server_id', aliasedName, true,
+      type: DriftSqlType.int, requiredDuringInsert: false);
   static const VerificationMeta _attemptsMeta =
       const VerificationMeta('attempts');
   @override
@@ -1285,7 +1291,7 @@ class $OutboxTable extends Outbox with TableInfo<$OutboxTable, OutboxData> {
       defaultValue: currentDateAndTime);
   @override
   List<GeneratedColumn> get $columns =>
-      [id, operation, clientId, attempts, lastError, createdAt];
+      [id, operation, clientId, serverId, attempts, lastError, createdAt];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -1310,6 +1316,10 @@ class $OutboxTable extends Outbox with TableInfo<$OutboxTable, OutboxData> {
           clientId.isAcceptableOrUnknown(data['client_id']!, _clientIdMeta));
     } else if (isInserting) {
       context.missing(_clientIdMeta);
+    }
+    if (data.containsKey('server_id')) {
+      context.handle(_serverIdMeta,
+          serverId.isAcceptableOrUnknown(data['server_id']!, _serverIdMeta));
     }
     if (data.containsKey('attempts')) {
       context.handle(_attemptsMeta,
@@ -1338,6 +1348,8 @@ class $OutboxTable extends Outbox with TableInfo<$OutboxTable, OutboxData> {
           .read(DriftSqlType.string, data['${effectivePrefix}operation'])!,
       clientId: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}client_id'])!,
+      serverId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}server_id']),
       attempts: attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}attempts'])!,
       lastError: attachedDatabase.typeMapping
@@ -1357,6 +1369,9 @@ class OutboxData extends DataClass implements Insertable<OutboxData> {
   final int id;
   final String operation;
   final String clientId;
+
+  /// For deletes: the row is gone locally, so remember which server record to delete.
+  final int? serverId;
   final int attempts;
   final String? lastError;
   final DateTime createdAt;
@@ -1364,6 +1379,7 @@ class OutboxData extends DataClass implements Insertable<OutboxData> {
       {required this.id,
       required this.operation,
       required this.clientId,
+      this.serverId,
       required this.attempts,
       this.lastError,
       required this.createdAt});
@@ -1373,6 +1389,9 @@ class OutboxData extends DataClass implements Insertable<OutboxData> {
     map['id'] = Variable<int>(id);
     map['operation'] = Variable<String>(operation);
     map['client_id'] = Variable<String>(clientId);
+    if (!nullToAbsent || serverId != null) {
+      map['server_id'] = Variable<int>(serverId);
+    }
     map['attempts'] = Variable<int>(attempts);
     if (!nullToAbsent || lastError != null) {
       map['last_error'] = Variable<String>(lastError);
@@ -1386,6 +1405,9 @@ class OutboxData extends DataClass implements Insertable<OutboxData> {
       id: Value(id),
       operation: Value(operation),
       clientId: Value(clientId),
+      serverId: serverId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(serverId),
       attempts: Value(attempts),
       lastError: lastError == null && nullToAbsent
           ? const Value.absent()
@@ -1401,6 +1423,7 @@ class OutboxData extends DataClass implements Insertable<OutboxData> {
       id: serializer.fromJson<int>(json['id']),
       operation: serializer.fromJson<String>(json['operation']),
       clientId: serializer.fromJson<String>(json['clientId']),
+      serverId: serializer.fromJson<int?>(json['serverId']),
       attempts: serializer.fromJson<int>(json['attempts']),
       lastError: serializer.fromJson<String?>(json['lastError']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
@@ -1413,6 +1436,7 @@ class OutboxData extends DataClass implements Insertable<OutboxData> {
       'id': serializer.toJson<int>(id),
       'operation': serializer.toJson<String>(operation),
       'clientId': serializer.toJson<String>(clientId),
+      'serverId': serializer.toJson<int?>(serverId),
       'attempts': serializer.toJson<int>(attempts),
       'lastError': serializer.toJson<String?>(lastError),
       'createdAt': serializer.toJson<DateTime>(createdAt),
@@ -1423,6 +1447,7 @@ class OutboxData extends DataClass implements Insertable<OutboxData> {
           {int? id,
           String? operation,
           String? clientId,
+          Value<int?> serverId = const Value.absent(),
           int? attempts,
           Value<String?> lastError = const Value.absent(),
           DateTime? createdAt}) =>
@@ -1430,6 +1455,7 @@ class OutboxData extends DataClass implements Insertable<OutboxData> {
         id: id ?? this.id,
         operation: operation ?? this.operation,
         clientId: clientId ?? this.clientId,
+        serverId: serverId.present ? serverId.value : this.serverId,
         attempts: attempts ?? this.attempts,
         lastError: lastError.present ? lastError.value : this.lastError,
         createdAt: createdAt ?? this.createdAt,
@@ -1439,6 +1465,7 @@ class OutboxData extends DataClass implements Insertable<OutboxData> {
       id: data.id.present ? data.id.value : this.id,
       operation: data.operation.present ? data.operation.value : this.operation,
       clientId: data.clientId.present ? data.clientId.value : this.clientId,
+      serverId: data.serverId.present ? data.serverId.value : this.serverId,
       attempts: data.attempts.present ? data.attempts.value : this.attempts,
       lastError: data.lastError.present ? data.lastError.value : this.lastError,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
@@ -1451,6 +1478,7 @@ class OutboxData extends DataClass implements Insertable<OutboxData> {
           ..write('id: $id, ')
           ..write('operation: $operation, ')
           ..write('clientId: $clientId, ')
+          ..write('serverId: $serverId, ')
           ..write('attempts: $attempts, ')
           ..write('lastError: $lastError, ')
           ..write('createdAt: $createdAt')
@@ -1459,8 +1487,8 @@ class OutboxData extends DataClass implements Insertable<OutboxData> {
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, operation, clientId, attempts, lastError, createdAt);
+  int get hashCode => Object.hash(
+      id, operation, clientId, serverId, attempts, lastError, createdAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1468,6 +1496,7 @@ class OutboxData extends DataClass implements Insertable<OutboxData> {
           other.id == this.id &&
           other.operation == this.operation &&
           other.clientId == this.clientId &&
+          other.serverId == this.serverId &&
           other.attempts == this.attempts &&
           other.lastError == this.lastError &&
           other.createdAt == this.createdAt);
@@ -1477,6 +1506,7 @@ class OutboxCompanion extends UpdateCompanion<OutboxData> {
   final Value<int> id;
   final Value<String> operation;
   final Value<String> clientId;
+  final Value<int?> serverId;
   final Value<int> attempts;
   final Value<String?> lastError;
   final Value<DateTime> createdAt;
@@ -1484,6 +1514,7 @@ class OutboxCompanion extends UpdateCompanion<OutboxData> {
     this.id = const Value.absent(),
     this.operation = const Value.absent(),
     this.clientId = const Value.absent(),
+    this.serverId = const Value.absent(),
     this.attempts = const Value.absent(),
     this.lastError = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -1492,6 +1523,7 @@ class OutboxCompanion extends UpdateCompanion<OutboxData> {
     this.id = const Value.absent(),
     required String operation,
     required String clientId,
+    this.serverId = const Value.absent(),
     this.attempts = const Value.absent(),
     this.lastError = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -1501,6 +1533,7 @@ class OutboxCompanion extends UpdateCompanion<OutboxData> {
     Expression<int>? id,
     Expression<String>? operation,
     Expression<String>? clientId,
+    Expression<int>? serverId,
     Expression<int>? attempts,
     Expression<String>? lastError,
     Expression<DateTime>? createdAt,
@@ -1509,6 +1542,7 @@ class OutboxCompanion extends UpdateCompanion<OutboxData> {
       if (id != null) 'id': id,
       if (operation != null) 'operation': operation,
       if (clientId != null) 'client_id': clientId,
+      if (serverId != null) 'server_id': serverId,
       if (attempts != null) 'attempts': attempts,
       if (lastError != null) 'last_error': lastError,
       if (createdAt != null) 'created_at': createdAt,
@@ -1519,6 +1553,7 @@ class OutboxCompanion extends UpdateCompanion<OutboxData> {
       {Value<int>? id,
       Value<String>? operation,
       Value<String>? clientId,
+      Value<int?>? serverId,
       Value<int>? attempts,
       Value<String?>? lastError,
       Value<DateTime>? createdAt}) {
@@ -1526,6 +1561,7 @@ class OutboxCompanion extends UpdateCompanion<OutboxData> {
       id: id ?? this.id,
       operation: operation ?? this.operation,
       clientId: clientId ?? this.clientId,
+      serverId: serverId ?? this.serverId,
       attempts: attempts ?? this.attempts,
       lastError: lastError ?? this.lastError,
       createdAt: createdAt ?? this.createdAt,
@@ -1543,6 +1579,9 @@ class OutboxCompanion extends UpdateCompanion<OutboxData> {
     }
     if (clientId.present) {
       map['client_id'] = Variable<String>(clientId.value);
+    }
+    if (serverId.present) {
+      map['server_id'] = Variable<int>(serverId.value);
     }
     if (attempts.present) {
       map['attempts'] = Variable<int>(attempts.value);
@@ -1562,6 +1601,7 @@ class OutboxCompanion extends UpdateCompanion<OutboxData> {
           ..write('id: $id, ')
           ..write('operation: $operation, ')
           ..write('clientId: $clientId, ')
+          ..write('serverId: $serverId, ')
           ..write('attempts: $attempts, ')
           ..write('lastError: $lastError, ')
           ..write('createdAt: $createdAt')
@@ -2338,6 +2378,7 @@ typedef $$OutboxTableCreateCompanionBuilder = OutboxCompanion Function({
   Value<int> id,
   required String operation,
   required String clientId,
+  Value<int?> serverId,
   Value<int> attempts,
   Value<String?> lastError,
   Value<DateTime> createdAt,
@@ -2346,6 +2387,7 @@ typedef $$OutboxTableUpdateCompanionBuilder = OutboxCompanion Function({
   Value<int> id,
   Value<String> operation,
   Value<String> clientId,
+  Value<int?> serverId,
   Value<int> attempts,
   Value<String?> lastError,
   Value<DateTime> createdAt,
@@ -2366,6 +2408,11 @@ class $$OutboxTableFilterComposer
 
   ColumnFilters<String> get clientId => $state.composableBuilder(
       column: $state.table.clientId,
+      builder: (column, joinBuilders) =>
+          ColumnFilters(column, joinBuilders: joinBuilders));
+
+  ColumnFilters<int> get serverId => $state.composableBuilder(
+      column: $state.table.serverId,
       builder: (column, joinBuilders) =>
           ColumnFilters(column, joinBuilders: joinBuilders));
 
@@ -2400,6 +2447,11 @@ class $$OutboxTableOrderingComposer
 
   ColumnOrderings<String> get clientId => $state.composableBuilder(
       column: $state.table.clientId,
+      builder: (column, joinBuilders) =>
+          ColumnOrderings(column, joinBuilders: joinBuilders));
+
+  ColumnOrderings<int> get serverId => $state.composableBuilder(
+      column: $state.table.serverId,
       builder: (column, joinBuilders) =>
           ColumnOrderings(column, joinBuilders: joinBuilders));
 
@@ -2442,6 +2494,7 @@ class $$OutboxTableTableManager extends RootTableManager<
             Value<int> id = const Value.absent(),
             Value<String> operation = const Value.absent(),
             Value<String> clientId = const Value.absent(),
+            Value<int?> serverId = const Value.absent(),
             Value<int> attempts = const Value.absent(),
             Value<String?> lastError = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
@@ -2450,6 +2503,7 @@ class $$OutboxTableTableManager extends RootTableManager<
             id: id,
             operation: operation,
             clientId: clientId,
+            serverId: serverId,
             attempts: attempts,
             lastError: lastError,
             createdAt: createdAt,
@@ -2458,6 +2512,7 @@ class $$OutboxTableTableManager extends RootTableManager<
             Value<int> id = const Value.absent(),
             required String operation,
             required String clientId,
+            Value<int?> serverId = const Value.absent(),
             Value<int> attempts = const Value.absent(),
             Value<String?> lastError = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
@@ -2466,6 +2521,7 @@ class $$OutboxTableTableManager extends RootTableManager<
             id: id,
             operation: operation,
             clientId: clientId,
+            serverId: serverId,
             attempts: attempts,
             lastError: lastError,
             createdAt: createdAt,
