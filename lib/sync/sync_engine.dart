@@ -61,6 +61,96 @@ class SyncEngine {
     return result;
   }
 
+  static const _transactionsMark = 'transactions_since';
+  static const _deletionsMark = 'deletions_since';
+
+  /// Applies server changes since the last pull. High-water marks come from
+  /// server timestamps (not the device clock), and rows with unpushed local
+  /// changes are left alone until those changes reach the server.
+  Future<int> pull() async {
+    final pending =
+        (await _db.select(_db.outbox).get()).map((o) => o.clientId).toSet();
+    var applied = 0;
+
+    final since = await _mark(_transactionsMark);
+    String? cursor;
+    String? newest = since;
+    do {
+      final page = await _api.get('/transactions', query: {
+        if (since != null) 'updated_since': since,
+        if (cursor != null) 'cursor': cursor,
+      });
+      final rows =
+          (page['transactions'] as List<dynamic>).cast<Map<String, dynamic>>();
+      await _db.transaction(() async {
+        for (final json in rows) {
+          if (await _upsertFromServer(json, pending)) applied++;
+          newest = json['updated_at'] as String;
+        }
+      });
+      cursor = page['next_cursor'] as String?;
+    } while (cursor != null);
+    if (newest != null) await _setMark(_transactionsMark, newest!);
+
+    final deletionsSince = await _mark(_deletionsMark);
+    final deletions = ((await _api.get('/deletions', query: {
+      if (deletionsSince != null) 'since': deletionsSince,
+    }))['deletions'] as List<dynamic>)
+        .cast<Map<String, dynamic>>();
+    await _db.transaction(() async {
+      for (final d
+          in deletions.where((d) => d['record_type'] == 'Transaction')) {
+        await (_db.delete(_db.transactions)
+              ..where((t) => t.serverId.equals(d['record_id'] as int)))
+            .go();
+        applied++;
+      }
+      if (deletions.isNotEmpty) {
+        await _setMark(_deletionsMark, deletions.last['deleted_at'] as String);
+      }
+    });
+
+    return applied;
+  }
+
+  Future<bool> _upsertFromServer(
+    Map<String, dynamic> json,
+    Set<String> pending,
+  ) async {
+    final serverId = json['id'] as int;
+    final clientId = json['client_id'] as String?;
+    final existing = await (_db.select(_db.transactions)
+          ..where(
+            (t) =>
+                t.serverId.equals(serverId) |
+                (clientId == null
+                    ? const Constant(false)
+                    : t.clientId.equals(clientId)),
+          ))
+        .getSingleOrNull();
+
+    if (existing != null && pending.contains(existing.clientId)) return false;
+
+    final row = TransactionJson.fromServer(json);
+    if (existing == null) {
+      await _db.into(_db.transactions).insert(row);
+    } else {
+      await (_db.update(_db.transactions)
+            ..where((t) => t.localId.equals(existing.localId)))
+          .write(row.copyWith(clientId: Value(existing.clientId)));
+    }
+    return true;
+  }
+
+  Future<String?> _mark(String key) async =>
+      (await (_db.select(_db.syncState)..where((s) => s.key.equals(key)))
+              .getSingleOrNull())
+          ?.value;
+
+  Future<void> _setMark(String key, String value) =>
+      _db.into(_db.syncState).insertOnConflictUpdate(
+          SyncStateCompanion.insert(key: key, value: value));
+
   /// Returns true when the server rejected an update as conflicting and its
   /// copy replaced ours.
   Future<bool> _push(OutboxData entry) async {
