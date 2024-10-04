@@ -3,6 +3,7 @@ import 'package:finance_tracker_mobile/app/app.dart';
 import 'package:finance_tracker_mobile/core/auth/token_store.dart';
 import 'package:finance_tracker_mobile/core/providers.dart';
 import 'package:finance_tracker_mobile/data/database.dart';
+import 'package:finance_tracker_mobile/sync/sync_triggers.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -26,13 +27,19 @@ FakeApi signedInApi() => FakeApi()
   ..on('GET /summary', (200, testSummary))
   ..on('GET /accounts', (200, {'accounts': <Object>[]}))
   ..on('GET /categories', (200, {'categories': <Object>[]}))
-  ..on('DELETE /session', (204, null));
+  ..on('DELETE /session', (204, null))
+  ..on('GET /transactions', (
+    200,
+    {'transactions': <Object>[], 'next_cursor': null},
+  ))
+  ..on('GET /deletions', (200, {'deletions': <Object>[]}));
 
 /// The whole app with test doubles for storage, network and database.
 Widget testApp({
   required FakeApi api,
   TokenStore? tokens,
   AppDatabase? db,
+  Stream<bool>? connectivity,
 }) =>
     ProviderScope(
       overrides: [
@@ -40,6 +47,8 @@ Widget testApp({
         apiClientProvider.overrideWithValue(api.client()),
         databaseProvider
             .overrideWithValue(db ?? AppDatabase(NativeDatabase.memory())),
+        connectivityChangesProvider
+            .overrideWithValue(connectivity ?? const Stream.empty()),
       ],
       child: const FinanceTrackerApp(),
     );
@@ -48,5 +57,5 @@ Widget testApp({
 /// test doesn't end with timers pending.
 Future<void> unmountApp(WidgetTester tester) async {
   await tester.pumpWidget(const SizedBox());
-  await tester.pump(const Duration(seconds: 1));
+  await tester.pump(const Duration(seconds: 3));
 }
