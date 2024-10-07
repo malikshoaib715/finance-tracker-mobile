@@ -5,12 +5,14 @@ import 'package:go_router/go_router.dart';
 import '../features/auth/auth_controller.dart';
 import '../features/auth/sign_in_screen.dart';
 import '../features/home/home_screen.dart';
+import '../features/transactions/transactions_screen.dart';
 import 'splash_screen.dart';
 
 abstract final class Routes {
   static const splash = '/splash';
   static const home = '/';
   static const signIn = '/sign-in';
+  static const transactions = '/transactions';
 }
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -41,7 +43,16 @@ final routerProvider = Provider<GoRouter>((ref) {
     },
     routes: [
       GoRoute(path: Routes.splash, builder: (_, __) => const SplashScreen()),
-      GoRoute(path: Routes.home, builder: (_, __) => const HomeScreen()),
+      GoRoute(
+        path: Routes.home,
+        builder: (_, __) => const HomeScreen(),
+        routes: [
+          GoRoute(
+            path: 'transactions',
+            builder: (_, __) => const TransactionsScreen(),
+          ),
+        ],
+      ),
       GoRoute(path: Routes.signIn, builder: (_, __) => const SignInScreen()),
     ],
   );

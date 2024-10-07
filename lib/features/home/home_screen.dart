@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../app/router.dart';
 import '../../app/theme.dart';
 import '../../core/api/api_exception.dart';
 import '../../core/money/money.dart';
@@ -60,6 +62,11 @@ class HomeScreen extends ConsumerWidget {
           title:
               Text(user == null ? 'Finance Tracker' : 'Hi, ${user.firstName}'),
           actions: [
+            IconButton(
+              tooltip: 'Transactions',
+              icon: const Icon(Icons.receipt_long_outlined),
+              onPressed: () => context.push(Routes.transactions),
+            ),
             IconButton(
               tooltip: 'Sign out',
               icon: const Icon(Icons.logout),
