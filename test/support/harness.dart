@@ -21,6 +21,31 @@ const testSummary = {
   'budgets': <Object>[],
 };
 
+const testAccount = {
+  'id': 1,
+  'name': 'Meezan Current',
+  'kind': 'bank',
+  'currency': 'PKR',
+  'position': 1,
+  'balance_cents': 0,
+  'archived_at': null,
+};
+
+const testCategories = [
+  {'id': 5, 'name': 'Groceries', 'kind': 'expense', 'color': '#10b981'},
+  {'id': 6, 'name': 'Salary', 'kind': 'income', 'color': '#0ea5e9'},
+];
+
+/// [signedInApi] plus one account and two categories.
+FakeApi apiWithReferenceData() => signedInApi()
+  ..on('GET /accounts', (
+    200,
+    {
+      'accounts': [testAccount],
+    }
+  ))
+  ..on('GET /categories', (200, {'categories': testCategories}));
+
 /// A FakeApi answering the calls the signed-in app makes on start.
 FakeApi signedInApi() => FakeApi()
   ..on('GET /me', (200, testUser))

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../app/router.dart';
 import '../../app/theme.dart';
 import '../../core/dates.dart';
 import '../../core/money/money.dart';
@@ -30,6 +32,11 @@ class TransactionsScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Transactions'),
         actions: const [SyncStatusChip(), SizedBox(width: 8)],
+      ),
+      floatingActionButton: FloatingActionButton(
+        tooltip: 'Add transaction',
+        onPressed: () => context.push(Routes.newTransaction),
+        child: const Icon(Icons.add),
       ),
       body: Column(
         children: [
@@ -150,6 +157,7 @@ class _TransactionTile extends StatelessWidget {
     final income = transaction.kind == 'income';
     final amount = income ? transaction.amountCents : -transaction.amountCents;
     return ListTile(
+      onTap: () => context.push(Routes.editTransaction(transaction.clientId)),
       title: Text(transaction.description),
       subtitle: Text(category?.name ?? 'Uncategorised'),
       trailing: Row(

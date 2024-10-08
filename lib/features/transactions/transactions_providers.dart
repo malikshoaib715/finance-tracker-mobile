@@ -47,3 +47,18 @@ final accountCurrenciesProvider = StreamProvider.autoDispose<Map<int, String>>(
         .watch(referenceRepositoryProvider)
         .watchAccounts()
         .map((list) => {for (final a in list) a.id: a.currency}));
+
+final accountsListProvider = StreamProvider.autoDispose<List<Account>>(
+  (ref) => ref.watch(referenceRepositoryProvider).watchAccounts(),
+);
+
+final categoriesListProvider = StreamProvider.autoDispose<List<Category>>(
+  (ref) => ref.watch(referenceRepositoryProvider).watchCategories(),
+);
+
+/// A single local transaction, for editing.
+final transactionProvider =
+    FutureProvider.autoDispose.family<Transaction?, String>(
+  (ref, clientId) =>
+      ref.watch(transactionsRepositoryProvider).findByClientId(clientId),
+);

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../features/auth/auth_controller.dart';
 import '../features/auth/sign_in_screen.dart';
 import '../features/home/home_screen.dart';
+import '../features/transactions/transaction_form_screen.dart';
 import '../features/transactions/transactions_screen.dart';
 import 'splash_screen.dart';
 
@@ -13,6 +14,8 @@ abstract final class Routes {
   static const home = '/';
   static const signIn = '/sign-in';
   static const transactions = '/transactions';
+  static const newTransaction = '/transactions/new';
+  static String editTransaction(String clientId) => '/transactions/$clientId';
 }
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -50,6 +53,18 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'transactions',
             builder: (_, __) => const TransactionsScreen(),
+            routes: [
+              GoRoute(
+                path: 'new',
+                builder: (_, __) => const TransactionFormScreen(),
+              ),
+              GoRoute(
+                path: ':clientId',
+                builder: (_, state) => TransactionFormScreen(
+                  clientId: state.pathParameters['clientId'],
+                ),
+              ),
+            ],
           ),
         ],
       ),

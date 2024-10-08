@@ -59,36 +59,7 @@ void main() {
           row('a', 'Salary', 28500000, today, kind: 'income', serverId: 10),
           row('b', 'Imtiaz groceries', 1245000, today),
         ]));
-    final api = signedInApi()
-      ..on('GET /accounts', (
-        200,
-        {
-          'accounts': [
-            {
-              'id': 1,
-              'name': 'Meezan Current',
-              'kind': 'bank',
-              'currency': 'PKR',
-              'position': 1,
-              'balance_cents': 0,
-              'archived_at': null,
-            },
-          ],
-        }
-      ))
-      ..on('GET /categories', (
-        200,
-        {
-          'categories': [
-            {
-              'id': 5,
-              'name': 'Groceries',
-              'kind': 'expense',
-              'color': '#10b981'
-            },
-          ],
-        }
-      ));
+    final api = apiWithReferenceData();
 
     await tester.pumpWidget(
       testApp(api: api, tokens: InMemoryTokenStore('ft_ok'), db: db),
@@ -100,7 +71,7 @@ void main() {
     expect(find.text('Today'), findsOneWidget);
     expect(find.text('+Rs 285,000.00'), findsOneWidget);
     expect(find.text('-Rs 12,450.00'), findsOneWidget);
-    expect(find.text('Groceries'), findsNWidgets(2));
+    expect(find.text('Groceries'), findsNWidgets(2)); // category 5 on both rows
     expect(find.byTooltip('Not synced yet'), findsOneWidget);
 
     await tester.tap(find.byTooltip('Previous month'));
