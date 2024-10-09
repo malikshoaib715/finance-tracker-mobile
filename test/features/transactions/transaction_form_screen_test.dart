@@ -86,4 +86,46 @@ void main() {
     );
     await unmountApp(tester);
   });
+
+  Future<void> addCareem(WidgetTester tester) async {
+    await tester.tap(find.byTooltip('Add transaction'));
+    await tester.pumpAndSettle();
+    await tester.enterText(field('Amount'), '500');
+    await tester.enterText(field('Description'), 'Careem');
+    await tapButton(tester, 'Add transaction');
+  }
+
+  testWidgets('swipe deletes a transaction and Undo brings it back',
+      (tester) async {
+    final db = await openList(tester);
+    await addCareem(tester);
+
+    await tester.drag(find.text('Careem'), const Offset(-600, 0));
+    await tester.pumpAndSettle();
+    expect(find.text('Careem'), findsNothing);
+    expect(find.text('Deleted “Careem”'), findsOneWidget);
+    expect(await db.select(db.transactions).get(), isEmpty);
+
+    await tester.tap(find.text('Undo'));
+    await tester.pumpAndSettle();
+    expect(find.text('Careem'), findsOneWidget);
+    expect(
+        (await db.select(db.transactions).get()).single.description, 'Careem');
+    await unmountApp(tester);
+  });
+
+  testWidgets('deletes from the edit screen', (tester) async {
+    final db = await openList(tester);
+    await addCareem(tester);
+
+    await tester.tap(find.text('Careem'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Delete'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Transactions'), findsOneWidget);
+    expect(find.text('Deleted “Careem”'), findsOneWidget);
+    expect(await db.select(db.transactions).get(), isEmpty);
+    await unmountApp(tester);
+  });
 }

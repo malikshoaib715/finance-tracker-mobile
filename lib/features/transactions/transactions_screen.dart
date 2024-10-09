@@ -10,6 +10,7 @@ import '../../core/widgets/state_views.dart';
 import '../../data/database.dart';
 import '../../sync/sync_controller.dart';
 import '../../sync/sync_status_chip.dart';
+import 'delete_with_undo.dart';
 import 'transactions_providers.dart';
 
 /// The selected month's transactions from the local database, grouped by day.
@@ -142,7 +143,7 @@ class _DaySection extends StatelessWidget {
   }
 }
 
-class _TransactionTile extends StatelessWidget {
+class _TransactionTile extends ConsumerWidget {
   const _TransactionTile({
     required this.transaction,
     required this.currency,
@@ -153,33 +154,48 @@ class _TransactionTile extends StatelessWidget {
   final Category? category;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final income = transaction.kind == 'income';
     final amount = income ? transaction.amountCents : -transaction.amountCents;
-    return ListTile(
-      onTap: () => context.push(Routes.editTransaction(transaction.clientId)),
-      title: Text(transaction.description),
-      subtitle: Text(category?.name ?? 'Uncategorised'),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (transaction.serverId == null)
-            const Padding(
-              padding: EdgeInsets.only(right: 6),
-              child: Tooltip(
-                message: 'Not synced yet',
-                child: Icon(Icons.cloud_upload_outlined,
-                    size: 16, color: AppColors.muted),
+    return Dismissible(
+      key: ValueKey(transaction.clientId),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        color: AppColors.expense,
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        child: const Icon(Icons.delete_outline, color: Colors.white),
+      ),
+      onDismissed: (_) => deleteWithUndo(
+        ScaffoldMessenger.of(context),
+        ref,
+        transaction.clientId,
+      ),
+      child: ListTile(
+        onTap: () => context.push(Routes.editTransaction(transaction.clientId)),
+        title: Text(transaction.description),
+        subtitle: Text(category?.name ?? 'Uncategorised'),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (transaction.serverId == null)
+              const Padding(
+                padding: EdgeInsets.only(right: 6),
+                child: Tooltip(
+                  message: 'Not synced yet',
+                  child: Icon(Icons.cloud_upload_outlined,
+                      size: 16, color: AppColors.muted),
+                ),
+              ),
+            Text(
+              Money.format(amount, currency, signed: true),
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: income ? AppColors.income : null,
               ),
             ),
-          Text(
-            Money.format(amount, currency, signed: true),
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              color: income ? AppColors.income : null,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

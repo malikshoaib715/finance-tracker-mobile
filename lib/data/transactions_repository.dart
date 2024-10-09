@@ -98,13 +98,45 @@ class TransactionsRepository {
     });
   }
 
-  Future<void> delete(String clientId) {
+  /// Deletes locally and queues the delete. Returns the removed row so the
+  /// caller can offer [restore].
+  Future<Transaction?> delete(String clientId) {
     return _db.transaction(() async {
       final row = await findByClientId(clientId);
       await (_db.delete(_db.transactions)
             ..where((t) => t.clientId.equals(clientId)))
           .go();
       await _enqueue('delete', clientId, serverId: row?.serverId);
+      return row;
+    });
+  }
+
+  /// Undoes [delete]. If the delete hasn't been pushed yet it is simply
+  /// dropped and the row comes back as it was; if the server already deleted
+  /// it, the row comes back as a new transaction to upload.
+  Future<void> restore(Transaction row) {
+    return _db.transaction(() async {
+      final pending = await (_db.delete(_db.outbox)
+            ..where(
+              (o) =>
+                  o.clientId.equals(row.clientId) &
+                  o.operation.equals('delete'),
+            ))
+          .go();
+      if (pending > 0) {
+        await _db.into(_db.transactions).insert(row);
+        return;
+      }
+      final clientId = _uuid.v4();
+      await _db.into(_db.transactions).insert(
+            row.toCompanion(false).copyWith(
+                  localId: const Value.absent(),
+                  clientId: Value(clientId),
+                  serverId: const Value(null),
+                  serverUpdatedAt: const Value(null),
+                ),
+          );
+      await _enqueue('create', clientId);
     });
   }
 

@@ -8,6 +8,7 @@ import '../../core/widgets/state_views.dart';
 import '../../data/database.dart';
 import '../../data/transactions_repository.dart';
 import '../../sync/sync_controller.dart';
+import 'delete_with_undo.dart';
 import 'transactions_providers.dart';
 
 /// New transaction, or edit of [clientId]. Saves locally; sync uploads it.
@@ -140,6 +141,18 @@ class _TransactionFormState extends ConsumerState<_TransactionForm> {
     return Scaffold(
       appBar: AppBar(
         title: Text(_editing ? 'Edit transaction' : 'New transaction'),
+        actions: [
+          if (widget.existing case final existing?)
+            IconButton(
+              tooltip: 'Delete',
+              icon: const Icon(Icons.delete_outline),
+              onPressed: () {
+                final messenger = ScaffoldMessenger.of(context);
+                context.pop();
+                deleteWithUndo(messenger, ref, existing.clientId);
+              },
+            ),
+        ],
       ),
       body: Form(
         key: _formKey,

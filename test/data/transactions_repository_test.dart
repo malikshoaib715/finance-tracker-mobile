@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:finance_tracker_mobile/data/database.dart';
 import 'package:finance_tracker_mobile/data/transactions_repository.dart';
@@ -51,5 +52,36 @@ void main() {
 
     final september = await repo.watchMonth(DateTime(2024, 9)).first;
     expect(september.map((t) => t.description), ['Late', 'Early']);
+  });
+
+  test('undoing a delete before it syncs drops the queued delete', () async {
+    final clientId = await repo.create(draft());
+    await db.delete(db.outbox).go(); // as if the create was pushed
+    final deleted = await repo.delete(clientId);
+
+    await repo.restore(deleted!);
+
+    final restored = await repo.findByClientId(clientId);
+    expect(restored, deleted);
+    expect(await db.select(db.outbox).get(), isEmpty);
+  });
+
+  test('undoing a delete that already synced re-creates the transaction',
+      () async {
+    final clientId = await repo.create(draft());
+    await (db.update(db.transactions)
+          ..where((t) => t.clientId.equals(clientId)))
+        .write(const TransactionsCompanion(serverId: Value(42)));
+    final deleted = await repo.delete(clientId);
+    await db.delete(db.outbox).go(); // the delete was pushed
+
+    await repo.restore(deleted!);
+
+    final row = (await db.select(db.transactions).get()).single;
+    expect(row.clientId, isNot(clientId));
+    expect((row.serverId, row.description), (null, 'Careem'));
+    final outbox = await db.select(db.outbox).get();
+    expect((outbox.single.operation, outbox.single.clientId),
+        ('create', row.clientId));
   });
 }
