@@ -12,12 +12,16 @@ class SyncStatus {
     this.phase = SyncPhase.idle,
     this.lastSyncedAt,
     this.pendingChanges = 0,
+    this.conflicts = 0,
     this.message,
   });
 
   final SyncPhase phase;
   final DateTime? lastSyncedAt;
   final int pendingChanges;
+
+  /// Local edits the last run discarded because the web had a newer version.
+  final int conflicts;
   final String? message;
 
   SyncStatus copyWith({
@@ -75,6 +79,7 @@ class SyncController extends Notifier<SyncStatus> {
       state = SyncStatus(
         lastSyncedAt: DateTime.now(),
         pendingChanges: await _pending(),
+        conflicts: pushed.conflicts,
         message: pushed.conflicts > 0
             ? '${pushed.conflicts} change(s) were replaced by newer edits from the web'
             : null,

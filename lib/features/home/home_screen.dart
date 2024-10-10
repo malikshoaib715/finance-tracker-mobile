@@ -8,6 +8,7 @@ import '../../core/api/api_exception.dart';
 import '../../core/money/money.dart';
 import '../../core/providers.dart';
 import '../../core/widgets/state_views.dart';
+import '../../sync/sync_notices.dart';
 import '../../sync/sync_triggers.dart';
 import '../auth/auth_controller.dart';
 import 'data/summary.dart';
@@ -57,46 +58,48 @@ class HomeScreen extends ConsumerWidget {
     final summary = ref.watch(summaryProvider);
 
     return SyncTriggers(
-      child: Scaffold(
-        appBar: AppBar(
-          title:
-              Text(user == null ? 'Finance Tracker' : 'Hi, ${user.firstName}'),
-          actions: [
-            IconButton(
-              tooltip: 'Transactions',
-              icon: const Icon(Icons.receipt_long_outlined),
-              onPressed: () => context.push(Routes.transactions),
-            ),
-            IconButton(
-              tooltip: 'Sign out',
-              icon: const Icon(Icons.logout),
-              onPressed: () => _confirmSignOut(context, ref),
-            ),
-          ],
-        ),
-        body: RefreshIndicator(
-          onRefresh: () => _refresh(ref),
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              summary.when(
-                loading: () => const Padding(
-                  padding: EdgeInsets.all(48),
-                  child: Center(child: CircularProgressIndicator()),
-                ),
-                error: (error, _) => ErrorView(
-                  message: error is ApiException
-                      ? error.message
-                      : 'Something went wrong loading your summary.',
-                  onRetry: () => ref.invalidate(summaryProvider),
-                ),
-                data: (summary) => summary == null
-                    ? const SizedBox.shrink()
-                    : _SummarySection(summary: summary),
+      child: SyncNotices(
+        child: Scaffold(
+          appBar: AppBar(
+            title: Text(
+                user == null ? 'Finance Tracker' : 'Hi, ${user.firstName}'),
+            actions: [
+              IconButton(
+                tooltip: 'Transactions',
+                icon: const Icon(Icons.receipt_long_outlined),
+                onPressed: () => context.push(Routes.transactions),
               ),
-              const SizedBox(height: 24),
-              const _AccountsSection(),
+              IconButton(
+                tooltip: 'Sign out',
+                icon: const Icon(Icons.logout),
+                onPressed: () => _confirmSignOut(context, ref),
+              ),
             ],
+          ),
+          body: RefreshIndicator(
+            onRefresh: () => _refresh(ref),
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                summary.when(
+                  loading: () => const Padding(
+                    padding: EdgeInsets.all(48),
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                  error: (error, _) => ErrorView(
+                    message: error is ApiException
+                        ? error.message
+                        : 'Something went wrong loading your summary.',
+                    onRetry: () => ref.invalidate(summaryProvider),
+                  ),
+                  data: (summary) => summary == null
+                      ? const SizedBox.shrink()
+                      : _SummarySection(summary: summary),
+                ),
+                const SizedBox(height: 24),
+                const _AccountsSection(),
+              ],
+            ),
           ),
         ),
       ),
