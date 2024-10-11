@@ -1,15 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
-import '../../app/router.dart';
 import '../../app/theme.dart';
 import '../../core/api/api_exception.dart';
 import '../../core/money/money.dart';
 import '../../core/providers.dart';
 import '../../core/widgets/state_views.dart';
-import '../../sync/sync_notices.dart';
-import '../../sync/sync_triggers.dart';
 import '../auth/auth_controller.dart';
 import 'data/summary.dart';
 import 'home_providers.dart';
@@ -57,50 +53,40 @@ class HomeScreen extends ConsumerWidget {
     final user = ref.watch(authControllerProvider).valueOrNull;
     final summary = ref.watch(summaryProvider);
 
-    return SyncTriggers(
-      child: SyncNotices(
-        child: Scaffold(
-          appBar: AppBar(
-            title: Text(
-                user == null ? 'Finance Tracker' : 'Hi, ${user.firstName}'),
-            actions: [
-              IconButton(
-                tooltip: 'Transactions',
-                icon: const Icon(Icons.receipt_long_outlined),
-                onPressed: () => context.push(Routes.transactions),
-              ),
-              IconButton(
-                tooltip: 'Sign out',
-                icon: const Icon(Icons.logout),
-                onPressed: () => _confirmSignOut(context, ref),
-              ),
-            ],
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(user == null ? 'Finance Tracker' : 'Hi, ${user.firstName}'),
+        actions: [
+          IconButton(
+            tooltip: 'Sign out',
+            icon: const Icon(Icons.logout),
+            onPressed: () => _confirmSignOut(context, ref),
           ),
-          body: RefreshIndicator(
-            onRefresh: () => _refresh(ref),
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                summary.when(
-                  loading: () => const Padding(
-                    padding: EdgeInsets.all(48),
-                    child: Center(child: CircularProgressIndicator()),
-                  ),
-                  error: (error, _) => ErrorView(
-                    message: error is ApiException
-                        ? error.message
-                        : 'Something went wrong loading your summary.',
-                    onRetry: () => ref.invalidate(summaryProvider),
-                  ),
-                  data: (summary) => summary == null
-                      ? const SizedBox.shrink()
-                      : _SummarySection(summary: summary),
-                ),
-                const SizedBox(height: 24),
-                const _AccountsSection(),
-              ],
+        ],
+      ),
+      body: RefreshIndicator(
+        onRefresh: () => _refresh(ref),
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            summary.when(
+              loading: () => const Padding(
+                padding: EdgeInsets.all(48),
+                child: Center(child: CircularProgressIndicator()),
+              ),
+              error: (error, _) => ErrorView(
+                message: error is ApiException
+                    ? error.message
+                    : 'Something went wrong loading your summary.',
+                onRetry: () => ref.invalidate(summaryProvider),
+              ),
+              data: (summary) => summary == null
+                  ? const SizedBox.shrink()
+                  : _SummarySection(summary: summary),
             ),
-          ),
+            const SizedBox(height: 24),
+            const _AccountsSection(),
+          ],
         ),
       ),
     );

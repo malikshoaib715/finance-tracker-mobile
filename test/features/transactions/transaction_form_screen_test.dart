@@ -123,7 +123,7 @@ void main() {
     await tester.tap(find.byTooltip('Delete'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Transactions'), findsOneWidget);
+    expect(find.widgetWithText(AppBar, 'Transactions'), findsOneWidget);
     expect(find.text('Deleted “Careem”'), findsOneWidget);
     expect(await db.select(db.transactions).get(), isEmpty);
     await unmountApp(tester);
