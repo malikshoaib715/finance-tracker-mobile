@@ -5,8 +5,9 @@ import '../../core/providers.dart';
 import '../../data/database.dart';
 import '../../sync/sync_controller.dart';
 
-/// First day of the month being viewed.
-final selectedMonthProvider = StateProvider.autoDispose<DateTime>((ref) {
+/// First day of the month being viewed, per account (null = all accounts).
+final selectedMonthProvider =
+    StateProvider.autoDispose.family<DateTime, int?>((ref, _) {
   final now = DateTime.now();
   return DateTime(now.year, now.month);
 });
@@ -27,11 +28,11 @@ List<DayGroup> groupByDay(List<Transaction> transactions) {
 }
 
 final monthTransactionsProvider =
-    StreamProvider.autoDispose<List<DayGroup>>((ref) {
-  final month = ref.watch(selectedMonthProvider);
+    StreamProvider.autoDispose.family<List<DayGroup>, int?>((ref, accountId) {
+  final month = ref.watch(selectedMonthProvider(accountId));
   return ref
       .watch(transactionsRepositoryProvider)
-      .watchMonth(month)
+      .watchMonth(month, accountId: accountId)
       .map(groupByDay);
 });
 

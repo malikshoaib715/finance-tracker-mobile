@@ -11,15 +11,17 @@ import '../../sync/sync_controller.dart';
 import 'delete_with_undo.dart';
 import 'transactions_providers.dart';
 
-/// New transaction, or edit of [clientId]. Saves locally; sync uploads it.
+/// New transaction (in [accountId] if given), or edit of [clientId].
+/// Saves locally; sync uploads it.
 class TransactionFormScreen extends ConsumerWidget {
-  const TransactionFormScreen({this.clientId, super.key});
+  const TransactionFormScreen({this.clientId, this.accountId, super.key});
   final String? clientId;
+  final int? accountId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final id = clientId;
-    if (id == null) return const _TransactionForm();
+    if (id == null) return _TransactionForm(accountId: accountId);
     return ref.watch(transactionProvider(id)).when(
           loading: () => const Scaffold(
             body: Center(child: CircularProgressIndicator()),
@@ -40,8 +42,9 @@ class TransactionFormScreen extends ConsumerWidget {
 }
 
 class _TransactionForm extends ConsumerStatefulWidget {
-  const _TransactionForm({this.existing});
+  const _TransactionForm({this.existing, this.accountId});
   final Transaction? existing;
+  final int? accountId;
 
   @override
   ConsumerState<_TransactionForm> createState() => _TransactionFormState();
@@ -71,7 +74,7 @@ class _TransactionFormState extends ConsumerState<_TransactionForm> {
     _notes = TextEditingController(text: t?.notes ?? '');
     _kind = t?.kind ?? 'expense';
     _occurredOn = t?.occurredOn ?? Dates.dateOnly(DateTime.now());
-    _accountId = t?.accountId;
+    _accountId = t?.accountId ?? widget.accountId;
     _categoryId = t?.categoryId;
   }
 

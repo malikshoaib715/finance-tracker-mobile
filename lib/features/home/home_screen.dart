@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../app/router.dart';
 import '../../app/theme.dart';
 import '../../core/api/api_exception.dart';
 import '../../core/money/money.dart';
@@ -259,6 +261,7 @@ class _AccountsSection extends ConsumerWidget {
               children: [
                 for (final account in accounts)
                   ListTile(
+                    onTap: () => context.go(Routes.account(account.id)),
                     title: Text(account.name),
                     subtitle: Text(account.kind.replaceAll('_', ' ')),
                     trailing: Text(

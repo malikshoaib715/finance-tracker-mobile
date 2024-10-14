@@ -15,7 +15,9 @@ abstract final class Routes {
   static const home = '/';
   static const signIn = '/sign-in';
   static const transactions = '/transactions';
-  static const newTransaction = '/transactions/new';
+  static String account(int id) => '/accounts/$id';
+  static String newTransaction({int? accountId}) =>
+      '/transactions/new${accountId == null ? '' : '?account=$accountId'}';
   static String editTransaction(String clientId) => '/transactions/$clientId';
 }
 
@@ -58,6 +60,14 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: Routes.home,
                 builder: (_, __) => const HomeScreen(),
+                routes: [
+                  GoRoute(
+                    path: 'accounts/:id',
+                    builder: (_, state) => TransactionsScreen(
+                      accountId: int.parse(state.pathParameters['id']!),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -71,7 +81,11 @@ final routerProvider = Provider<GoRouter>((ref) {
                   GoRoute(
                     path: 'new',
                     parentNavigatorKey: _rootNavigatorKey,
-                    builder: (_, __) => const TransactionFormScreen(),
+                    builder: (_, state) => TransactionFormScreen(
+                      accountId: int.tryParse(
+                        state.uri.queryParameters['account'] ?? '',
+                      ),
+                    ),
                   ),
                   GoRoute(
                     path: ':clientId',

@@ -35,15 +35,18 @@ class TransactionsRepository {
   final AppDatabase _db;
   final Uuid _uuid;
 
-  /// Transactions in [month], newest first.
-  Stream<List<Transaction>> watchMonth(DateTime month) {
+  /// Transactions in [month], newest first; only [accountId]'s if given.
+  Stream<List<Transaction>> watchMonth(DateTime month, {int? accountId}) {
     final start = DateTime(month.year, month.month);
     final end = DateTime(month.year, month.month + 1);
     return (_db.select(_db.transactions)
           ..where(
             (t) =>
                 t.occurredOn.isBiggerOrEqualValue(start) &
-                t.occurredOn.isSmallerThanValue(end),
+                t.occurredOn.isSmallerThanValue(end) &
+                (accountId == null
+                    ? const Constant(true)
+                    : t.accountId.equals(accountId)),
           )
           ..orderBy([
             (t) => OrderingTerm.desc(t.occurredOn),

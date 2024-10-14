@@ -13,30 +13,41 @@ import '../../sync/sync_status_chip.dart';
 import 'delete_with_undo.dart';
 import 'transactions_providers.dart';
 
-/// The selected month's transactions from the local database, grouped by day.
-/// Works offline; sync keeps it up to date in the background.
+/// The selected month's transactions from the local database, grouped by day,
+/// for all accounts or just [accountId]. Works offline; sync keeps it up to
+/// date in the background.
 class TransactionsScreen extends ConsumerWidget {
-  const TransactionsScreen({super.key});
+  const TransactionsScreen({this.accountId, super.key});
+  final int? accountId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final month = ref.watch(selectedMonthProvider);
-    final days = ref.watch(monthTransactionsProvider);
+    final month = ref.watch(selectedMonthProvider(accountId));
+    final days = ref.watch(monthTransactionsProvider(accountId));
+    final accountName = accountId == null
+        ? null
+        : ref
+            .watch(accountsListProvider)
+            .valueOrNull
+            ?.where((a) => a.id == accountId)
+            .firstOrNull
+            ?.name;
     final categories = ref.watch(categoriesByIdProvider).valueOrNull ?? {};
     final currencies = ref.watch(accountCurrenciesProvider).valueOrNull ?? {};
 
     void shiftMonth(int delta) =>
-        ref.read(selectedMonthProvider.notifier).state =
+        ref.read(selectedMonthProvider(accountId).notifier).state =
             DateTime(month.year, month.month + delta);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Transactions'),
+        title: Text(accountName ?? 'Transactions'),
         actions: const [SyncStatusChip(), SizedBox(width: 8)],
       ),
       floatingActionButton: FloatingActionButton(
         tooltip: 'Add transaction',
-        onPressed: () => context.push(Routes.newTransaction),
+        onPressed: () =>
+            context.push(Routes.newTransaction(accountId: accountId)),
         child: const Icon(Icons.add),
       ),
       body: Column(
