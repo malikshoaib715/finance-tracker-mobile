@@ -16,12 +16,37 @@ import 'transactions_providers.dart';
 /// The selected month's transactions from the local database, grouped by day,
 /// for all accounts or just [accountId]. Works offline; sync keeps it up to
 /// date in the background.
-class TransactionsScreen extends ConsumerWidget {
+class TransactionsScreen extends ConsumerStatefulWidget {
   const TransactionsScreen({this.accountId, super.key});
   final int? accountId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TransactionsScreen> createState() => _TransactionsScreenState();
+}
+
+class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
+  final _search = TextEditingController();
+  bool _searching = false;
+
+  int? get accountId => widget.accountId;
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  void _setSearching(bool searching) {
+    setState(() => _searching = searching);
+    if (!searching) {
+      _search.clear();
+      ref.read(searchQueryProvider(accountId).notifier).state = '';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final searching = _searching;
     final month = ref.watch(selectedMonthProvider(accountId));
     final days = ref.watch(monthTransactionsProvider(accountId));
     final accountName = accountId == null
@@ -41,8 +66,37 @@ class TransactionsScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(accountName ?? 'Transactions'),
-        actions: const [SyncStatusChip(), SizedBox(width: 8)],
+        title: searching
+            ? TextField(
+                controller: _search,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  hintText: 'Search description or notes',
+                  border: InputBorder.none,
+                  filled: false,
+                ),
+                onChanged: (text) => ref
+                    .read(searchQueryProvider(accountId).notifier)
+                    .state = text,
+              )
+            : Text(accountName ?? 'Transactions'),
+        actions: [
+          if (searching)
+            IconButton(
+              tooltip: 'Close search',
+              icon: const Icon(Icons.close),
+              onPressed: () => _setSearching(false),
+            )
+          else ...[
+            IconButton(
+              tooltip: 'Search',
+              icon: const Icon(Icons.search),
+              onPressed: () => _setSearching(true),
+            ),
+            const SyncStatusChip(),
+            const SizedBox(width: 8),
+          ],
+        ],
       ),
       floatingActionButton: FloatingActionButton(
         tooltip: 'Add transaction',
@@ -52,30 +106,31 @@ class TransactionsScreen extends ConsumerWidget {
       ),
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Row(
-              children: [
-                IconButton(
-                  tooltip: 'Previous month',
-                  icon: const Icon(Icons.chevron_left),
-                  onPressed: () => shiftMonth(-1),
-                ),
-                Expanded(
-                  child: Text(
-                    Dates.month(month),
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.titleMedium,
+          if (!searching)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Row(
+                children: [
+                  IconButton(
+                    tooltip: 'Previous month',
+                    icon: const Icon(Icons.chevron_left),
+                    onPressed: () => shiftMonth(-1),
                   ),
-                ),
-                IconButton(
-                  tooltip: 'Next month',
-                  icon: const Icon(Icons.chevron_right),
-                  onPressed: () => shiftMonth(1),
-                ),
-              ],
+                  Expanded(
+                    child: Text(
+                      Dates.month(month),
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Next month',
+                    icon: const Icon(Icons.chevron_right),
+                    onPressed: () => shiftMonth(1),
+                  ),
+                ],
+              ),
             ),
-          ),
           Expanded(
             child: RefreshIndicator(
               onRefresh: () => ref.read(syncControllerProvider.notifier).sync(),
@@ -86,10 +141,14 @@ class TransactionsScreen extends ConsumerWidget {
                 ),
                 data: (days) => days.isEmpty
                     ? ListView(
-                        children: const [
+                        children: [
                           EmptyView(
-                            message: 'No transactions this month.',
-                            icon: Icons.receipt_long_outlined,
+                            message: searching
+                                ? 'Nothing matches your search.'
+                                : 'No transactions this month.',
+                            icon: searching
+                                ? Icons.search_off
+                                : Icons.receipt_long_outlined,
                           ),
                         ],
                       )

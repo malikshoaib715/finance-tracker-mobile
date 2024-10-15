@@ -55,6 +55,30 @@ class TransactionsRepository {
         .watch();
   }
 
+  /// Up to [limit] transactions whose description or notes contain [query]
+  /// (case-insensitive), newest first, from any month.
+  Stream<List<Transaction>> watchSearch(
+    String query, {
+    int? accountId,
+    int limit = 200,
+  }) {
+    final pattern = '%${query.trim().replaceAll(RegExp(r'[%_\\]'), '')}%';
+    return (_db.select(_db.transactions)
+          ..where(
+            (t) =>
+                (t.description.like(pattern) | t.notes.like(pattern)) &
+                (accountId == null
+                    ? const Constant(true)
+                    : t.accountId.equals(accountId)),
+          )
+          ..orderBy([
+            (t) => OrderingTerm.desc(t.occurredOn),
+            (t) => OrderingTerm.desc(t.localId),
+          ])
+          ..limit(limit))
+        .watch();
+  }
+
   Future<Transaction?> findByClientId(String clientId) =>
       (_db.select(_db.transactions)..where((t) => t.clientId.equals(clientId)))
           .getSingleOrNull();

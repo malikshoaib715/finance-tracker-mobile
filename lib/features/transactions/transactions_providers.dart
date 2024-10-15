@@ -27,13 +27,21 @@ List<DayGroup> groupByDay(List<Transaction> transactions) {
   return [for (final e in groups.entries) DayGroup(e.key, e.value)];
 }
 
+/// Search text, per account (null = all accounts). Empty = browse by month.
+final searchQueryProvider =
+    StateProvider.autoDispose.family<String, int?>((ref, _) => '');
+
+/// What the list shows: search results from any month while searching,
+/// otherwise the selected month.
 final monthTransactionsProvider =
     StreamProvider.autoDispose.family<List<DayGroup>, int?>((ref, accountId) {
+  final repo = ref.watch(transactionsRepositoryProvider);
+  final query = ref.watch(searchQueryProvider(accountId)).trim();
+  if (query.isNotEmpty) {
+    return repo.watchSearch(query, accountId: accountId).map(groupByDay);
+  }
   final month = ref.watch(selectedMonthProvider(accountId));
-  return ref
-      .watch(transactionsRepositoryProvider)
-      .watchMonth(month, accountId: accountId)
-      .map(groupByDay);
+  return repo.watchMonth(month, accountId: accountId).map(groupByDay);
 });
 
 final categoriesByIdProvider = StreamProvider.autoDispose<Map<int, Category>>(

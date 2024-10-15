@@ -84,4 +84,27 @@ void main() {
     expect((outbox.single.operation, outbox.single.clientId),
         ('create', row.clientId));
   });
+
+  test('searches description and notes across months', () async {
+    await repo.create(
+        draft(description: 'Careem to office', on: DateTime(2024, 8, 3)));
+    await repo
+        .create(draft(description: 'Groceries', on: DateTime(2024, 9, 10)));
+    final withNote = TransactionDraft(
+      accountId: 2,
+      kind: 'expense',
+      amountCents: 90000,
+      occurredOn: DateTime(2024, 9, 20),
+      description: 'Fuel',
+      notes: 'careem bike top-up',
+    );
+    await repo.create(withNote);
+
+    final found = await repo.watchSearch(' CAREEM ').first;
+    expect(found.map((t) => t.description), ['Fuel', 'Careem to office']);
+
+    final inAccount = await repo.watchSearch('careem', accountId: 1).first;
+    expect(inAccount.map((t) => t.description), ['Careem to office']);
+    expect(await repo.watchSearch('%').first, hasLength(3));
+  });
 }

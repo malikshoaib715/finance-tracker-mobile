@@ -3,6 +3,7 @@ import 'package:drift/native.dart';
 import 'package:finance_tracker_mobile/core/auth/token_store.dart';
 import 'package:finance_tracker_mobile/data/database.dart';
 import 'package:finance_tracker_mobile/features/transactions/transactions_providers.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../support/harness.dart';
@@ -77,6 +78,46 @@ void main() {
     await tester.tap(find.byTooltip('Previous month'));
     await tester.pumpAndSettle();
     expect(find.text('No transactions this month.'), findsOneWidget);
+    await unmountApp(tester);
+  });
+
+  testWidgets('searches across months and returns to the month view',
+      (tester) async {
+    final db = AppDatabase(NativeDatabase.memory());
+    await db.batch(
+      (b) => b.insertAll(db.transactions, [
+        row('a', 'Imtiaz groceries', 1245000, today, serverId: 1),
+        row('b', 'Careem', 50000, DateTime(today.year, today.month - 2, 3),
+            serverId: 2),
+      ]),
+    );
+    await tester.pumpWidget(
+      testApp(
+        api: apiWithReferenceData(),
+        tokens: InMemoryTokenStore('ft_ok'),
+        db: db,
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Transactions'));
+    await tester.pumpAndSettle();
+    expect(find.text('Careem'), findsNothing);
+
+    await tester.tap(find.byTooltip('Search'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'care');
+    await tester.pumpAndSettle();
+    expect(find.text('Careem'), findsOneWidget);
+    expect(find.text('Imtiaz groceries'), findsNothing);
+
+    await tester.enterText(find.byType(TextField), 'nothing like this');
+    await tester.pumpAndSettle();
+    expect(find.text('Nothing matches your search.'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Close search'));
+    await tester.pumpAndSettle();
+    expect(find.text('Imtiaz groceries'), findsOneWidget);
+    expect(find.byTooltip('Previous month'), findsOneWidget);
     await unmountApp(tester);
   });
 }

@@ -9,5 +9,6 @@ void main() {
     expect(Dates.day(DateTime(2024, 10, 7, 8), now: now), 'Today');
     expect(Dates.day(DateTime(2024, 10, 6), now: now), 'Yesterday');
     expect(Dates.day(DateTime(2024, 9, 2), now: now), 'Mon 2 Sep');
+    expect(Dates.day(DateTime(2023, 12, 29), now: now), 'Fri 29 Dec 2023');
   });
 }
