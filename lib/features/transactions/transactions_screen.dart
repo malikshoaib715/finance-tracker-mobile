@@ -47,6 +47,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
   @override
   Widget build(BuildContext context) {
     final searching = _searching;
+    final filtered = !ref.watch(filterProvider(accountId)).isEmpty;
     final month = ref.watch(selectedMonthProvider(accountId));
     final days = ref.watch(monthTransactionsProvider(accountId));
     final accountName = accountId == null
@@ -131,6 +132,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                 ],
               ),
             ),
+          _FilterBar(accountId: accountId),
           Expanded(
             child: RefreshIndicator(
               onRefresh: () => ref.read(syncControllerProvider.notifier).sync(),
@@ -145,7 +147,9 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                           EmptyView(
                             message: searching
                                 ? 'Nothing matches your search.'
-                                : 'No transactions this month.',
+                                : filtered
+                                    ? 'Nothing matches these filters.'
+                                    : 'No transactions this month.',
                             icon: searching
                                 ? Icons.search_off
                                 : Icons.receipt_long_outlined,
@@ -163,6 +167,91 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                       ),
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FilterBar extends ConsumerWidget {
+  const _FilterBar({required this.accountId});
+  final int? accountId;
+
+  Future<void> _pickCategory(
+    BuildContext context,
+    WidgetRef ref,
+    TransactionFilter filter,
+    List<Category> all,
+  ) async {
+    final categories =
+        all.where((c) => filter.kind == null || c.kind == filter.kind).toList();
+    final picked = await showModalBottomSheet<int>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            ListTile(
+              title: const Text('Any category'),
+              onTap: () => Navigator.pop(context, -1),
+            ),
+            for (final c in categories)
+              ListTile(
+                title: Text(c.name),
+                selected: c.id == filter.categoryId,
+                onTap: () => Navigator.pop(context, c.id),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (picked == null) return;
+    ref.read(filterProvider(accountId).notifier).state = TransactionFilter(
+      kind: filter.kind,
+      categoryId: picked == -1 ? null : picked,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final filter = ref.watch(filterProvider(accountId));
+    final categoryList =
+        ref.watch(categoriesListProvider).valueOrNull ?? const <Category>[];
+    final categories = {for (final c in categoryList) c.id: c};
+    void setKind(String? kind) =>
+        ref.read(filterProvider(accountId).notifier).state = TransactionFilter(
+          kind: kind,
+          // A category of the other type would hide everything.
+          categoryId:
+              kind != null && categories[filter.categoryId]?.kind != kind
+                  ? null
+                  : filter.categoryId,
+        );
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: [
+          for (final (kind, label) in [
+            (null, 'All'),
+            ('expense', 'Expenses'),
+            ('income', 'Income'),
+          ])
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: ChoiceChip(
+                label: Text(label),
+                selected: filter.kind == kind,
+                onSelected: (_) => setKind(kind),
+              ),
+            ),
+          FilterChip(
+            label: Text(categories[filter.categoryId]?.name ?? 'Category'),
+            selected: filter.categoryId != null,
+            onSelected: (_) =>
+                _pickCategory(context, ref, filter, categoryList),
           ),
         ],
       ),

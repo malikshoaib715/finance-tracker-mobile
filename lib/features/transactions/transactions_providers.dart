@@ -31,17 +31,38 @@ List<DayGroup> groupByDay(List<Transaction> transactions) {
 final searchQueryProvider =
     StateProvider.autoDispose.family<String, int?>((ref, _) => '');
 
+/// Narrows the list by type and category; null fields mean "any".
+class TransactionFilter {
+  const TransactionFilter({this.kind, this.categoryId});
+  final String? kind; // expense | income
+  final int? categoryId;
+
+  bool get isEmpty => kind == null && categoryId == null;
+
+  bool matches(Transaction t) =>
+      (kind == null || t.kind == kind) &&
+      (categoryId == null || t.categoryId == categoryId);
+}
+
+final filterProvider =
+    StateProvider.autoDispose.family<TransactionFilter, int?>(
+  (ref, _) => const TransactionFilter(),
+);
+
 /// What the list shows: search results from any month while searching,
 /// otherwise the selected month.
 final monthTransactionsProvider =
     StreamProvider.autoDispose.family<List<DayGroup>, int?>((ref, accountId) {
   final repo = ref.watch(transactionsRepositoryProvider);
+  final filter = ref.watch(filterProvider(accountId));
   final query = ref.watch(searchQueryProvider(accountId)).trim();
-  if (query.isNotEmpty) {
-    return repo.watchSearch(query, accountId: accountId).map(groupByDay);
-  }
-  final month = ref.watch(selectedMonthProvider(accountId));
-  return repo.watchMonth(month, accountId: accountId).map(groupByDay);
+  final rows = query.isNotEmpty
+      ? repo.watchSearch(query, accountId: accountId)
+      : repo.watchMonth(
+          ref.watch(selectedMonthProvider(accountId)),
+          accountId: accountId,
+        );
+  return rows.map((list) => groupByDay(list.where(filter.matches).toList()));
 });
 
 final categoriesByIdProvider = StreamProvider.autoDispose<Map<int, Category>>(

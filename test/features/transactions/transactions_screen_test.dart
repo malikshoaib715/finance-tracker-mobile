@@ -120,4 +120,59 @@ void main() {
     expect(find.byTooltip('Previous month'), findsOneWidget);
     await unmountApp(tester);
   });
+
+  testWidgets('filters by type and category', (tester) async {
+    final db = AppDatabase(NativeDatabase.memory());
+    await db.batch(
+      (b) => b.insertAll(db.transactions, [
+        row('a', 'Salary', 28500000, today, kind: 'income', serverId: 1),
+        row('b', 'Imtiaz groceries', 1245000, today, serverId: 2),
+        TransactionsCompanion.insert(
+          clientId: 'c',
+          serverId: const Value(3),
+          accountId: 1,
+          kind: 'expense',
+          amountCents: 50000,
+          occurredOn: today,
+          description: 'Careem',
+        ),
+      ]),
+    );
+    await tester.pumpWidget(
+      testApp(
+        api: apiWithReferenceData(),
+        tokens: InMemoryTokenStore('ft_ok'),
+        db: db,
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Transactions'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Income'));
+    await tester.pumpAndSettle();
+    expect(find.text('Salary'), findsOneWidget);
+    expect(find.text('Careem'), findsNothing);
+
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Expenses'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilterChip, 'Category'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.descendant(
+        of: find.byType(BottomSheet),
+        matching: find.text('Groceries'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Imtiaz groceries'), findsOneWidget);
+    expect(find.text('Careem'), findsNothing);
+    expect(find.text('Salary'), findsNothing);
+
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Income'));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(FilterChip, 'Category'), findsOneWidget);
+    expect(find.text('Salary'), findsOneWidget);
+    await unmountApp(tester);
+  });
 }
