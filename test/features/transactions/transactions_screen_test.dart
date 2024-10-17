@@ -53,6 +53,35 @@ void main() {
     expect(groups.first.transactions.map((t) => t.localId), [3, 2]);
   });
 
+  test('totals income and spending per currency', () {
+    Transaction t(int account, String kind, int cents) => Transaction(
+          localId: cents,
+          clientId: 'c$cents',
+          accountId: account,
+          kind: kind,
+          amountCents: cents,
+          occurredOn: DateTime(2024, 10, 1),
+          description: 'x',
+          tags: '',
+        );
+    final totals = totalsByCurrency(
+      [
+        DayGroup(DateTime(2024, 10, 1), [
+          t(1, 'income', 500000),
+          t(1, 'expense', 120000),
+          t(1, 'expense', 30000),
+          t(2, 'expense', 2500),
+        ]),
+      ],
+      {1: 'PKR', 2: 'USD'},
+    );
+
+    expect(totals, {
+      'PKR': (income: 500000, spent: 150000),
+      'USD': (income: 0, spent: 2500),
+    });
+  });
+
   testWidgets('lists this month’s transactions by day and marks unsynced ones',
       (tester) async {
     final db = AppDatabase(NativeDatabase.memory());
@@ -70,6 +99,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Today'), findsOneWidget);
+    expect(find.text('In Rs 285,000.00'), findsOneWidget);
+    expect(find.text('Out Rs 12,450.00'), findsOneWidget);
     expect(find.text('+Rs 285,000.00'), findsOneWidget);
     expect(find.text('-Rs 12,450.00'), findsOneWidget);
     expect(find.text('Groceries'), findsNWidgets(2)); // category 5 on both rows

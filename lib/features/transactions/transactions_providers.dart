@@ -92,3 +92,23 @@ final transactionProvider =
   (ref, clientId) =>
       ref.watch(transactionsRepositoryProvider).findByClientId(clientId),
 );
+
+/// Income and spending in one currency, in minor units.
+typedef Totals = ({int income, int spent});
+
+/// Totals of the shown transactions per currency (accounts can differ), so
+/// amounts in different currencies are never added together.
+Map<String, Totals> totalsByCurrency(
+  List<DayGroup> days,
+  Map<int, String> currencies,
+) {
+  final totals = <String, Totals>{};
+  for (final t in days.expand((d) => d.transactions)) {
+    final currency = currencies[t.accountId] ?? 'PKR';
+    final current = totals[currency] ?? (income: 0, spent: 0);
+    totals[currency] = t.kind == 'income'
+        ? (income: current.income + t.amountCents, spent: current.spent)
+        : (income: current.income, spent: current.spent + t.amountCents);
+  }
+  return totals;
+}

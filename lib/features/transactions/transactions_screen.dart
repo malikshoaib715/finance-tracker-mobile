@@ -158,12 +158,16 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                       )
                     : ListView.builder(
                         padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                        itemCount: days.length,
-                        itemBuilder: (_, i) => _DaySection(
-                          group: days[i],
-                          categories: categories,
-                          currencies: currencies,
-                        ),
+                        itemCount: days.length + 1,
+                        itemBuilder: (_, i) => i == 0
+                            ? _TotalsRow(
+                                totals: totalsByCurrency(days, currencies),
+                              )
+                            : _DaySection(
+                                group: days[i - 1],
+                                categories: categories,
+                                currencies: currencies,
+                              ),
                       ),
               ),
             ),
@@ -253,6 +257,39 @@ class _FilterBar extends ConsumerWidget {
             onSelected: (_) =>
                 _pickCategory(context, ref, filter, categoryList),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TotalsRow extends StatelessWidget {
+  const _TotalsRow({required this.totals});
+  final Map<String, Totals> totals;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = Theme.of(context).textTheme.bodyMedium;
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final MapEntry(key: currency, value: t) in totals.entries)
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'In ${Money.format(t.income, currency)}',
+                    style: style?.copyWith(color: AppColors.income),
+                  ),
+                ),
+                Text(
+                  'Out ${Money.format(t.spent, currency)}',
+                  style: style?.copyWith(color: AppColors.expense),
+                ),
+              ],
+            ),
         ],
       ),
     );
