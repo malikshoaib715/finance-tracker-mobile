@@ -47,6 +47,12 @@ final transactionsRepositoryProvider = Provider<TransactionsRepository>(
   (ref) => TransactionsRepository(ref.watch(databaseProvider)),
 );
 
+/// Number of local changes waiting to be uploaded, live.
+final pendingChangesProvider = StreamProvider.autoDispose<int>((ref) {
+  final db = ref.watch(databaseProvider);
+  return db.select(db.outbox).watch().map((rows) => rows.length);
+});
+
 final syncControllerProvider =
     NotifierProvider<SyncController, SyncStatus>(SyncController.new);
 

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../features/auth/auth_controller.dart';
 import '../features/auth/sign_in_screen.dart';
 import '../features/home/home_screen.dart';
+import '../features/settings/settings_screen.dart';
 import '../features/transactions/transaction_form_screen.dart';
 import '../features/transactions/transactions_screen.dart';
 import 'app_shell.dart';
@@ -15,6 +16,7 @@ abstract final class Routes {
   static const home = '/';
   static const signIn = '/sign-in';
   static const transactions = '/transactions';
+  static const settings = '/settings';
   static String account(int id) => '/accounts/$id';
   static String newTransaction({int? accountId}) =>
       '/transactions/new${accountId == null ? '' : '?account=$accountId'}';
@@ -95,6 +97,14 @@ final routerProvider = Provider<GoRouter>((ref) {
                     ),
                   ),
                 ],
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: Routes.settings,
+                builder: (_, __) => const SettingsScreen(),
               ),
             ],
           ),
