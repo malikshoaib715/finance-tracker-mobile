@@ -6,8 +6,9 @@ import '../../app/router.dart';
 import '../../app/theme.dart';
 import '../../core/api/api_exception.dart';
 import '../../core/money/money.dart';
-import '../../core/providers.dart';
 import '../../core/widgets/state_views.dart';
+import '../../sync/sync_controller.dart';
+import '../../sync/sync_status_chip.dart';
 import '../auth/auth_controller.dart';
 import 'data/summary.dart';
 import 'home_providers.dart';
@@ -15,12 +16,10 @@ import 'home_providers.dart';
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
+  /// Full sync (upload, download, accounts and categories), then a fresh
+  /// summary. Offline, cached numbers keep showing with a banner.
   Future<void> _refresh(WidgetRef ref) async {
-    try {
-      await ref.read(referenceRepositoryProvider).refresh();
-    } on ApiException {
-      // Accounts stay as cached; the summary shows the offline state.
-    }
+    await ref.read(syncControllerProvider.notifier).sync();
     ref.invalidate(summaryProvider);
     await ref.read(summaryProvider.future).catchError((_) => null);
   }
@@ -29,10 +28,19 @@ class HomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authControllerProvider).valueOrNull;
     final summary = ref.watch(summaryProvider);
+    // Balances and totals are computed on the server, so reload them after
+    // every successful sync (e.g. once a new transaction has been uploaded).
+    ref.listen(
+      syncControllerProvider.select((s) => s.lastSyncedAt),
+      (previous, next) {
+        if (next != null && next != previous) ref.invalidate(summaryProvider);
+      },
+    );
 
     return Scaffold(
       appBar: AppBar(
         title: Text(user == null ? 'Finance Tracker' : 'Hi, ${user.firstName}'),
+        actions: const [SyncStatusChip(), SizedBox(width: 8)],
       ),
       body: RefreshIndicator(
         onRefresh: () => _refresh(ref),

@@ -57,4 +57,29 @@ void main() {
     expect(find.text('Try again'), findsOneWidget);
     await unmountApp(tester);
   });
+
+  testWidgets('pull to refresh syncs, then reloads the summary',
+      (tester) async {
+    final api = signedInApi();
+    await tester.pumpWidget(
+      testApp(api: api, tokens: InMemoryTokenStore('ft_ok')),
+    );
+    await tester.pumpAndSettle();
+    int count(String path) =>
+        api.requests.where((r) => r.path.endsWith(path)).length;
+    final summaries = count('/summary');
+    final feeds = count('/transactions');
+
+    api.on('GET /summary', (
+      200,
+      {...testSummary, 'net_worth_cents': 240000000},
+    ));
+    await tester.fling(find.text('Net worth'), const Offset(0, 400), 1000);
+    await tester.pumpAndSettle();
+
+    expect(count('/transactions'), greaterThan(feeds));
+    expect(count('/summary'), greaterThan(summaries));
+    expect(find.text('Rs 2,400,000.00'), findsOneWidget);
+    await unmountApp(tester);
+  });
 }
