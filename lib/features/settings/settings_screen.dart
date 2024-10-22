@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../app/router.dart';
 import '../../app/theme.dart';
 import '../../core/providers.dart';
 import '../../sync/sync_controller.dart';
@@ -83,6 +85,7 @@ class SettingsScreen extends ConsumerWidget {
                 ListTile(
                   title: const Text('Waiting to upload'),
                   trailing: Text('$pending'),
+                  onTap: () => context.go(Routes.pendingChanges),
                 ),
                 if (status.message != null)
                   ListTile(
