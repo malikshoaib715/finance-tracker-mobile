@@ -26,8 +26,9 @@ class SyncEngine {
   final ApiClient _api;
 
   /// Sends queued changes oldest first. Stops at the first network failure
-  /// (everything stays queued); a rejected change is recorded and skipped,
-  /// along with later changes to the same transaction.
+  /// (everything stays queued); a rejected change is marked and skipped, along
+  /// with later changes to the same transaction, until the user edits the
+  /// transaction or discards the change.
   Future<SyncResult> push() async {
     final result = SyncResult();
     final blocked = <String>{};
@@ -36,6 +37,7 @@ class SyncEngine {
         .get();
 
     for (final entry in entries) {
+      if (entry.rejected) blocked.add(entry.clientId);
       if (blocked.contains(entry.clientId)) continue;
       try {
         final conflicted = await _push(entry);
@@ -53,7 +55,7 @@ class SyncEngine {
         await _recordFailure(entry, e);
         return result..offline = true;
       } on ApiException catch (e) {
-        await _recordFailure(entry, e);
+        await _recordFailure(entry, e, rejected: true);
         blocked.add(entry.clientId);
         result.failed++;
       }
@@ -217,11 +219,52 @@ class SyncEngine {
             .copyWith(clientId: Value(row.clientId)),
       );
 
-  Future<void> _recordFailure(OutboxData entry, ApiException e) =>
+  Future<void> _recordFailure(
+    OutboxData entry,
+    ApiException e, {
+    bool rejected = false,
+  }) =>
       (_db.update(_db.outbox)..where((o) => o.id.equals(entry.id))).write(
         OutboxCompanion(
           attempts: Value(entry.attempts + 1),
           lastError: Value(e.message),
+          rejected: Value(rejected),
         ),
       );
+
+  /// Gives up on local changes to [clientId]: drops them from the queue and
+  /// puts back the server's version (or removes the transaction if the
+  /// server never had it). Throws [ApiException] if the server can't be
+  /// reached, leaving everything as it was.
+  Future<void> discard(String clientId) async {
+    final row = await _row(clientId);
+    final entries = await (_db.select(_db.outbox)
+          ..where((o) => o.clientId.equals(clientId)))
+        .get();
+    final serverId =
+        row?.serverId ?? entries.map((e) => e.serverId).nonNulls.firstOrNull;
+
+    Map<String, dynamic>? serverCopy;
+    if (serverId != null) {
+      try {
+        serverCopy = await _api.get('/transactions/$serverId');
+      } on NotFoundException {
+        serverCopy = null;
+      }
+    }
+
+    await _db.transaction(() async {
+      await (_db.delete(_db.outbox)..where((o) => o.clientId.equals(clientId)))
+          .go();
+      await (_db.delete(_db.transactions)
+            ..where((t) => t.clientId.equals(clientId)))
+          .go();
+      if (serverCopy != null) {
+        await _db.into(_db.transactions).insert(
+              TransactionJson.fromServer(serverCopy)
+                  .copyWith(clientId: Value(clientId)),
+            );
+      }
+    });
+  }
 }

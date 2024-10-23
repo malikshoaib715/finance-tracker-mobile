@@ -42,12 +42,20 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('New: Careem'), findsOneWidget);
-    expect(find.text('Account must exist'), findsOneWidget);
-    expect(find.text('1 try'), findsOneWidget);
+    expect(find.textContaining('Account must exist'), findsOneWidget);
 
+    // Rejected changes aren't sent again until edited or discarded.
+    final posts = api.requests.where((r) => r.method == 'POST').length;
     await tester.tap(find.byTooltip('Retry now'));
     await tester.pumpAndSettle();
-    expect(find.text('2 tries'), findsOneWidget);
+    expect(api.requests.where((r) => r.method == 'POST').length, posts);
+
+    await tester.tap(find.text('Discard'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Discard'));
+    await tester.pumpAndSettle();
+    expect(find.text('Everything is uploaded.'), findsOneWidget);
+    expect(await db.select(db.transactions).get(), isEmpty);
     await unmountApp(tester);
   });
 }

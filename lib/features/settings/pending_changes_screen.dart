@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/theme.dart';
+import '../../core/api/api_exception.dart';
 import '../../core/widgets/state_views.dart';
 import '../../sync/pending_changes.dart';
 import '../../sync/sync_controller.dart';
@@ -49,12 +50,44 @@ class PendingChangesScreen extends ConsumerWidget {
   }
 }
 
-class _ChangeTile extends StatelessWidget {
+class _ChangeTile extends ConsumerWidget {
   const _ChangeTile({required this.change});
   final PendingChange change;
 
+  Future<void> _discard(BuildContext context, WidgetRef ref) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Discard this change?'),
+        content: const Text(
+          'The transaction goes back to how it is on the server '
+          '(or is removed if it was never uploaded).',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Discard'),
+          ),
+        ],
+      ),
+    );
+    if (!(confirmed ?? false)) return;
+    try {
+      await ref.read(syncEngineProvider).discard(change.entry.clientId);
+    } on ApiException catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('Couldn’t discard: ${e.message}')),
+      );
+    }
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final entry = change.entry;
     final (icon, verb) = switch (entry.operation) {
       'create' => (Icons.add_circle_outline, 'New'),
@@ -69,15 +102,26 @@ class _ChangeTile extends StatelessWidget {
       subtitle: error == null
           ? const Text('Not tried yet')
           : Text(
-              error,
-              style: const TextStyle(color: AppColors.expense),
+              entry.rejected
+                  ? '$error\nEdit the transaction to try again, or discard '
+                      'the change.'
+                  : error,
+              style: TextStyle(
+                color: entry.rejected ? AppColors.expense : AppColors.muted,
+              ),
             ),
-      trailing: entry.attempts == 0
-          ? null
-          : Text(
-              entry.attempts == 1 ? '1 try' : '${entry.attempts} tries',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
+      isThreeLine: entry.rejected,
+      trailing: entry.rejected
+          ? TextButton(
+              onPressed: () => _discard(context, ref),
+              child: const Text('Discard'),
+            )
+          : entry.attempts == 0
+              ? null
+              : Text(
+                  entry.attempts == 1 ? '1 try' : '${entry.attempts} tries',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
     );
   }
 }

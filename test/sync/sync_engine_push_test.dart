@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:drift/native.dart';
+import 'package:finance_tracker_mobile/core/api/api_exception.dart';
 import 'package:finance_tracker_mobile/data/database.dart';
 import 'package:finance_tracker_mobile/data/transactions_repository.dart';
 import 'package:finance_tracker_mobile/sync/sync_engine.dart';
@@ -154,5 +155,89 @@ void main() {
     final left = await db.select(db.outbox).get();
     expect(left.map((o) => o.operation), ['create', 'update']);
     expect(left.first.lastError, 'Account is not one of yours');
+  });
+
+  test('rejected changes wait until the user edits the transaction', () async {
+    final clientId = await repo.create(draft());
+    var accept = false;
+    api.onDynamic(
+      'POST /transactions',
+      (r) => accept
+          ? (201, serverJson(r))
+          : (
+              422,
+              {
+                'error': {'message': 'Account is not one of yours'},
+              }
+            ),
+    );
+    await engine.push();
+    expect((await db.select(db.outbox).getSingle()).rejected, isTrue);
+
+    accept = true;
+    await engine.push();
+    expect(api.requests, hasLength(1), reason: 'not retried by itself');
+
+    await repo.update(clientId, draft('Fixed'));
+    api.onDynamic('PATCH /transactions/99', (r) => (200, serverJson(r)));
+    final result = await engine.push();
+    expect(result.pushed, 2);
+    expect((await repo.findByClientId(clientId))!.serverId, 99);
+  });
+
+  group('discard', () {
+    test('drops a never-uploaded transaction', () async {
+      final clientId = await repo.create(draft());
+
+      await engine.discard(clientId);
+
+      expect(await db.select(db.transactions).get(), isEmpty);
+      expect(await db.select(db.outbox).get(), isEmpty);
+    });
+
+    test('restores the server copy of an edited transaction', () async {
+      final clientId = await repo.create(draft());
+      api.onDynamic('POST /transactions', (r) => (201, serverJson(r)));
+      await engine.push();
+      await repo.update(clientId, draft('Phone edit'));
+      api.on('GET /transactions/99', (
+        200,
+        {
+          'id': 99,
+          'client_id': clientId,
+          'account_id': 1,
+          'category_id': null,
+          'kind': 'expense',
+          'amount_cents': 125000,
+          'occurred_on': '2024-10-01',
+          'description': 'Careem',
+          'notes': null,
+          'tags': <String>[],
+          'updated_at': '2024-10-01T12:00:00.000000Z',
+        }
+      ));
+
+      await engine.discard(clientId);
+
+      final row = (await repo.findByClientId(clientId))!;
+      expect((row.description, row.serverId), ('Careem', 99));
+      expect(await db.select(db.outbox).get(), isEmpty);
+    });
+
+    test('changes nothing when the server is unreachable', () async {
+      final clientId = await repo.create(draft());
+      api.onDynamic('POST /transactions', (r) => (201, serverJson(r)));
+      await engine.push();
+      await repo.update(clientId, draft('Phone edit'));
+
+      // No route for GET /transactions/99: the request fails to connect.
+      await expectLater(
+        engine.discard(clientId),
+        throwsA(isA<NetworkException>()),
+      );
+
+      expect((await repo.findByClientId(clientId))!.description, 'Phone edit');
+      expect(await db.select(db.outbox).get(), hasLength(1));
+    });
   });
 }

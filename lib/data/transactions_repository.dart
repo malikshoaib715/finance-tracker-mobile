@@ -167,12 +167,21 @@ class TransactionsRepository {
     });
   }
 
-  Future<void> _enqueue(String operation, String clientId, {int? serverId}) =>
-      _db.into(_db.outbox).insert(
-            OutboxCompanion.insert(
-              operation: operation,
-              clientId: clientId,
-              serverId: Value(serverId),
-            ),
-          );
+  /// Queues a change. Any earlier changes to the same transaction that the
+  /// server rejected get another try, since the user has now changed it.
+  Future<void> _enqueue(
+    String operation,
+    String clientId, {
+    int? serverId,
+  }) async {
+    await (_db.update(_db.outbox)..where((o) => o.clientId.equals(clientId)))
+        .write(const OutboxCompanion(rejected: Value(false)));
+    await _db.into(_db.outbox).insert(
+          OutboxCompanion.insert(
+            operation: operation,
+            clientId: clientId,
+            serverId: Value(serverId),
+          ),
+        );
+  }
 }

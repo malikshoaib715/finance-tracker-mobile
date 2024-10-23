@@ -59,6 +59,10 @@ class Outbox extends Table {
   IntColumn get serverId => integer().nullable()();
   IntColumn get attempts => integer().withDefault(const Constant(0))();
   TextColumn get lastError => text().nullable()();
+
+  /// The server refused this change (e.g. failed validation). It isn't
+  /// retried until the user edits the transaction or discards the change.
+  BoolColumn get rejected => boolean().withDefault(const Constant(false))();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 }
 
@@ -88,5 +92,12 @@ class AppDatabase extends _$AppDatabase {
         );
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+        onUpgrade: (m, from, to) async {
+          if (from < 2) await m.addColumn(outbox, outbox.rejected);
+        },
+      );
 }
